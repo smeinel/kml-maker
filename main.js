@@ -1,10 +1,14 @@
 var fs = require('fs');
 var handlebars = require('handlebars');
+var kml_extractor = require('./lib/kml_extractor');
+var path = require('path');
 var pngparse = require("pngparse");
 var Q = require('q');
 var util = require('util');
 var xml2js = require('xml2js');
 var $_ = require('underscore');
+
+var src_kml;
 
 var placemark = {
     name: null,
@@ -13,81 +17,13 @@ var placemark = {
 };
 
 function init () {
-    var parser = new xml2js.Parser();
-    var deferred = Q.defer();
-
-    parser.addListener('end', function(result) {
-        deferred.resolve(result);
-    });
-
-    fs.readFile(__dirname + '/test_data/tmp/doc.kml', function(err, data) {
-        if (err) {
-            deferred.reject(err);
-        }
-        parser.parseString(data);
-    });
-    return deferred.promise;
-}
-
-function inspect_document (doc) {
-    console.log("Document.name", doc.name);
-    $_.each(doc.Folder, inspect_folder);
-}
-
-function inspect_folder (doc) {
-    console.log("Folder.name", doc.name);
-    $_.each(doc, function (v, k) {
-        // util.inspect({k: v}, {colors: true});
-    });
-    $_.each(doc.Placemark, inspect_placemark);
-    // $_.each(doc.GroundOverlay, inspect_groundoverlay);
-}
-
-function inspect_placemark (doc) {
-    placemark.name = doc.name[0];
-    placemark.description = doc.description[0];
-    $_.each(doc, function (v, k) {
-        // console.log('ipm', k, v);
-    });
-    $_.each(doc.Polygon, function (poly) {
-        placemark.bounds = get_latlonbox(clean_coord_string(poly.outerBoundaryIs[0].LinearRing[0].coordinates[0]));
-    });
-}
-
-function inspect_groundoverlay (doc) {
-    // console.log('inspect_groundoverlay', doc);
-    $_.each(doc, function (v, k) {
-        // console.log('igo', k, v);
-    });
-}
-
-function clean_coord_string (coord_string) {
-    var cleaned = coord_string.replace(/[\n\t]/g, '').split(' ');
-    var last = cleaned.pop();
-    if (last.length) {
-        cleaned.push(last);
+    if (process.argv.length < 3 || process.argv[2].search(/kml/ig) === -1) {
+        console.log('You must supply the path to a KML file to begin.\n\nUsage: node main.js path_to_kml_file\n');
+        process.exit(1);
     }
-    return cleaned;
-}
+    src_kml = path.resolve(__dirname, process.argv[2]);
 
-function get_latlonbox (coord_strings) {
-    var north = -91, south = 91, east = -181, west = 181;
-    var lat, lon;
-    $_.each(coord_strings, function (coord) {
-        var parts = coord.split(',');
-        lon = parseFloat(parts[0]);
-        lat = parseFloat(parts[1]);
-        north = Math.max(north, lat);
-        south = Math.min(south, lat);
-        east = Math.max(east, lon);
-        west = Math.min(west, lon);
-    });
-    return {
-        north: north,
-        south: south,
-        east: east,
-        west: west
-    };
+    return kml_extractor.parse_file(src_kml);
 }
 
 function test_pixel (x, y, img_data) {
@@ -102,28 +38,36 @@ function test_pixel (x, y, img_data) {
     return (black === (px | black));
 }
 
-init().then(function (data) {
-    // console.log(data.kml.Document, $_.pluck(data.kml, 'Document'));
-    $_.each(data.kml.Document, inspect_document);
-    console.log(JSON.stringify(placemark, null, 2));
-    return placemark;
-}).then(function (pm) {
-    var deferred = Q.defer();
-    var src = __dirname + '/test_data/tmp/CA_Glendora_20120328_TM_geo.pdf';
-    var dest = __dirname + '/test_data/tmp/CA_Glendora_20120328_TM_geo-njs.png';
+init().then(function () {
     var spawn = require('child_process').spawn;
-    var cmd;
-    // cmd = spawn('convert', ['-density', '300', src, dest]);
-    // cmd.on('error', deferred.reject);
-    // cmd.on('close', deferred.resolve);
+    var commands = [];
+    var placemarks = kml_extractor.extract_placemarks();
+    console.log('converting map');
 
-    deferred.resolve();
+    $_.each(placemarks, function (placemark) {
+        var deferred = Q.defer();
+        var src = path.resolve(path.dirname(src_kml), placemark.file);
+        var dest = src.slice(0, -4) + '.png';
+        var cmd;
+        console.log(placemark.file, src, dest);
+        if (fs.existsSync(src)) {
+            console.log('source PDF found. converting...');
+            cmd = spawn('convert', ['-density', '300', src, dest]);
+            cmd.on('error', deferred.reject);
+            cmd.on('close', function () {
+                deferred.resolve(dest);
+            });
+        } else {
+            deferred.reject(new Error('source PDF NOT FOUND'));
+        }
+        commands.push(deferred.promise);
+    });
 
-    return deferred.promise;
-}).then(function () {
+    return Q.all(commands);
+}).then(function (maps) {
     var deferred = Q.defer();
-    console.log('Find the map square!');
-    pngparse.parseFile(__dirname + '/test_data/tmp/CA_Glendora_20120328_TM_geo-njs.png', function(err, data) {
+    console.log('Find the map square!', maps);
+    pngparse.parseFile(__dirname + '/test_data/tmp/CA_Glendora_20120328_TM_geo.png', function(err, data) {
         var png_data = data;
         var cut_lines = {
             n: -1,
@@ -141,8 +85,6 @@ init().then(function (data) {
         if (err) {
             deferred.reject(err);
         }
-
-        console.log(data);
 
         $_.each($_.range(20), function (attempts) {
             var test_points = $_.range(0, png_data.width, 100);
@@ -237,6 +179,8 @@ init().then(function (data) {
     cmd.on('close', deferred.resolve);
 
     return deferred.promise;
+}).then(function () {
+    return kml_extractor.extract_placemarks();
 }).fail(function (err) {
     console.error(err);
 }).done();
