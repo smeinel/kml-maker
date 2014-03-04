@@ -43,8 +43,8 @@ init().then(function () {
     return image_handler.get_map_image_borders(maps[0]);
 }).then(function (res) {
     return image_handler.cut_map_image(res);
-}).then(function () {
-    return kml_extractor.extract_placemarks();
+}).then(function (res) {
+    return image_handler.tile_map_image(res);
 }).fail(function (err) {
-    console.error(err);
+    throw err;
 }).done();
