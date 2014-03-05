@@ -11,12 +11,6 @@ var $_ = require('underscore');
 
 var src_kml;
 
-var placemark = {
-    name: null,
-    description: null,
-    bounds: null
-};
-
 function init () {
     if (process.argv.length < 3 || process.argv[2].search(/kml/ig) === -1) {
         console.log('You must supply the path to a KML file to begin.\n\nUsage: node main.js path_to_kml_file\n');
@@ -27,15 +21,18 @@ function init () {
     return kml_extractor.parse_file(src_kml);
 }
 
-init().then(function () {
+init().then(function (kml_docs) {
     var spawn = require('child_process').spawn;
     var commands = [];
-    var placemarks = kml_extractor.extract_placemarks();
+
+    kml_extractor.extract_placemarks();
     console.log('converting map');
 
-    $_.each(placemarks, function (placemark) {
-        var src = path.resolve(path.dirname(src_kml), placemark.file);
-        commands.push(image_handler.pdf_to_png(src));
+    $_.each(kml_docs, function (kml_doc) {
+        $_.each(kml_doc.get_placemarks(), function (placemark) {
+            var src = path.resolve(path.dirname(src_kml), placemark.file);
+            commands.push(image_handler.pdf_to_png(src));
+        });
     });
 
     return Q.all(commands);
