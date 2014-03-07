@@ -31,17 +31,22 @@ init().then(function (kml_docs) {
     $_.each(kml_docs, function (kml_doc) {
         $_.each(kml_doc.get_placemarks(), function (placemark) {
             var src = path.resolve(path.dirname(src_kml), placemark.file);
-            commands.push(image_handler.pdf_to_png(src));
+            var chain = image_handler.pdf_to_png(src)
+                .then(image_handler.get_map_image_borders)
+                .then(image_handler.cut_map_image)
+                .then(image_handler.tile_map_image)
+                .then(function (res) {
+                    placemark.processed_file_data = res;
+                    return true;
+                });
+            commands.push(chain);
         });
     });
 
     return Q.all(commands);
-}).then(function (maps) {
-    return image_handler.get_map_image_borders(maps[0]);
-}).then(function (res) {
-    return image_handler.cut_map_image(res);
-}).then(function (res) {
-    return image_handler.tile_map_image(res);
+}).then(function () {
+    console.log('all placemarks processed. creating KML file.');
+    console.log(JSON.stringify(kml_extractor.get_kml_docs(), null, 2));
 }).fail(function (err) {
     throw err;
 }).done();
