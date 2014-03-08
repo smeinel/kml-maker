@@ -2,6 +2,7 @@ var fs = require('fs');
 var handlebars = require('handlebars');
 var image_handler = require('./lib/image_handler');
 var kml_extractor = require('./lib/kml_extractor');
+var kml_writer = require('./lib/kml_writer');
 var path = require('path');
 var pngparse = require("pngparse");
 var Q = require('q');
@@ -45,7 +46,7 @@ init().then(function (kml_docs) {
     return Q.all(commands);
 }).then(function () {
     console.log('all placemarks processed. generating kml file.');
-    console.log(JSON.stringify(kml_extractor.get_kml_docs(), null, 2));
+    kml_writer.write('./test_data/test/doc.kml', kml_extractor.get_kml_docs());
 }).fail(function (err) {
     throw err;
 }).done();
