@@ -2,6 +2,7 @@
   "name": "kml-maker",
   "version": "0.0.1",
   "description": "Converts USGS map data into KML files usable by Google Earth and Garmin devices.",
+  "keywords": "KML, converter, USGS",
   "main": "main.js",
   "dependencies": {
     "xml2js": "~0.4.1",
@@ -10,11 +11,21 @@
     "handlebars": "~2.0.0-alpha.1",
     "pngparse": "~2.0.1",
     "adm-zip": "~0.4.4",
-    "rimraf": "~2.2.6"
+    "rimraf": "~2.2.6",
+    "big.js": "~2.5.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Steve Meinel",
-  "license": "GPLv3"
+  "author": "Steve Meinel <steve@stevemeinel.com>",
+  "repository": "https://github.com/smeinel/kml-maker",
+  "license": "GPL-2.0+",
+  "bugs": {
+    "url": "https://github.com/smeinel/kml-maker/issues",
+    "email": "steve@stevemeinel.com"
+  },
+  "devDependencies": {
+    "chai": "~1.9.0",
+    "chai-as-promised": "~4.1.1"
+  }
 }

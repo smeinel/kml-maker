@@ -5,7 +5,6 @@ var kml_extractor = require('./lib/kml_extractor');
 var path = require('path');
 var pngparse = require("pngparse");
 var Q = require('q');
-var util = require('util');
 var xml2js = require('xml2js');
 var $_ = require('underscore');
 
@@ -22,7 +21,6 @@ function init () {
 }
 
 init().then(function (kml_docs) {
-    var spawn = require('child_process').spawn;
     var commands = [];
 
     kml_extractor.extract_placemarks();
@@ -37,6 +35,7 @@ init().then(function (kml_docs) {
                 .then(image_handler.tile_map_image)
                 .then(function (res) {
                     placemark.processed_file_data = res;
+                    placemark.create_tile_data();
                     return true;
                 });
             commands.push(chain);
@@ -45,7 +44,7 @@ init().then(function (kml_docs) {
 
     return Q.all(commands);
 }).then(function () {
-    console.log('all placemarks processed. creating KML file.');
+    console.log('all placemarks processed. generating kml file.');
     console.log(JSON.stringify(kml_extractor.get_kml_docs(), null, 2));
 }).fail(function (err) {
     throw err;
